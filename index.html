@@ -1238,6 +1238,9 @@ h1, h2 { font-family: var(--serif); font-weight: 400; }
       <div class="filter-row" id="filter-row">
         <div class="chip active" data-filter="all" onclick="setFilter('all')">Alle</div>
         <div class="chip" data-filter="tech" onclick="setFilter('tech')">Technik</div>
+        <div class="chip" data-filter="techN" onclick="setFilter('techN')">T-N</div>
+        <div class="chip" data-filter="techE" onclick="setFilter('techE')">T-E</div>
+        <div class="chip" data-filter="techA" onclick="setFilter('techA')">T-A</div>
         <div class="chip" data-filter="betr" onclick="setFilter('betr')">Betrieb</div>
         <div class="chip" data-filter="vor" onclick="setFilter('vor')">Vorschriften</div>
         <div class="chip" data-filter="weak" onclick="setFilter('weak')">Schwächen</div>
@@ -1787,9 +1790,12 @@ async function setFilter(f) {
 function getFilteredPool() {
   if (!CATALOG) return [];
   let pool = [...CATALOG.technik, ...CATALOG.betrieb, ...CATALOG.vorschriften];
-  if (learnFilter === 'tech') pool = CATALOG.technik;
-  if (learnFilter === 'betr') pool = CATALOG.betrieb;
-  if (learnFilter === 'vor')  pool = CATALOG.vorschriften;
+  if (learnFilter === 'tech')  pool = CATALOG.technik;
+  if (learnFilter === 'techN') pool = CATALOG.technik.filter(q => q.number.startsWith('N'));
+  if (learnFilter === 'techE') pool = CATALOG.technik.filter(q => q.number.startsWith('E'));
+  if (learnFilter === 'techA') pool = CATALOG.technik.filter(q => q.number.startsWith('A'));
+  if (learnFilter === 'betr')  pool = CATALOG.betrieb;
+  if (learnFilter === 'vor')   pool = CATALOG.vorschriften;
   if (learnFilter === 'weak') pool = pool.filter(q => STATS.seen[q.number]?.lastWrong);
   if (learnFilter === 'unseen') pool = pool.filter(q => !STATS.seen[q.number]);
   return pool;
@@ -1989,13 +1995,14 @@ async function startExam() {
   });
 
   examState = {
-    questions:  allQ,
+    questions:   allQ,
     parts,
-    answers:    new Array(allQ.length).fill(null), // index der gewählten Antwort
-    current:    0,
-    startTime:  Date.now(),
-    timerStart: Date.now(),
-    totalTime:  (45 + 45 + 60 + 45 + 45) * 60,
+    answers:     new Array(allQ.length).fill(null),
+    seenInExam:  new Set([0]), // Fragen die schon angezeigt wurden
+    current:     0,
+    startTime:   Date.now(),
+    timerStart:  Date.now(),
+    totalTime:   (45 + 45 + 60 + 45 + 45) * 60,
     timerInterval: null,
     done: false,
   };
@@ -2103,6 +2110,7 @@ async function examNav(dir) {
   document.querySelectorAll('.btn-exam-next, .btn-ghost').forEach(b => b.disabled = true);
   const oldPartIdx = examState.questions[examState.current]._partIdx;
   examState.current = Math.max(0, Math.min(examState.questions.length - 1, examState.current + dir));
+  examState.seenInExam.add(examState.current);
   const newPartIdx = examState.questions[examState.current]._partIdx;
   // Übergangs-Karte wenn Teilwechsel vorwärts
   if (dir > 0 && newPartIdx !== oldPartIdx) {
@@ -2162,7 +2170,7 @@ function confirmAbort() {
   document.getElementById('modal-confirm-btn').onclick = () => {
     closeModal();
     document.getElementById('pause-overlay').classList.remove('show');
-    finishExam();
+    finishExam(true);
   };
   document.getElementById('modal-overlay').classList.add('show');
 }
@@ -2170,6 +2178,7 @@ function confirmAbort() {
 async function jumpToExamQ(idx) {
   document.querySelectorAll('.edot').forEach(d => d.style.pointerEvents = 'none');
   examState.current = idx;
+  examState.seenInExam.add(idx);
   await renderExamQ();
 }
 
@@ -2198,34 +2207,43 @@ function updateExamTimer() {
   if (remaining === 0) finishExam();
 }
 
-function finishExam() {
+function finishExam(aborted = false) {
   if (examState.done) return;
   examState.done = true;
   clearInterval(examState.timerInterval);
-  // Abgabe-Button sofort deaktivieren
   const finBtn = document.querySelector('.btn-exam-next');
   if (finBtn) { finBtn.disabled = true; finBtn.textContent = 'Wird ausgewertet…'; }
 
   // Auswertung berechnen
   const results = {};
   examState.parts.forEach(p => {
-    results[p.id] = { correct: 0, total: p.questions.length, passed: false };
+    results[p.id] = { correct: 0, total: p.questions.length, passed: false, skipped: 0 };
   });
 
   examState.questions.forEach((q, i) => {
     const chosen = examState.answers[i];
+    const seen   = examState.seenInExam ? examState.seenInExam.has(i) : true;
+
+    // Beim Abbruch: nicht gesehene Fragen komplett ignorieren
+    if (aborted && !seen) return;
+
+    // Beim Abbruch: Gesamtzahl pro Teil auf gesehene Fragen reduzieren
+    if (aborted) {
+      results[q._partId].total = (results[q._partId]._seenCount || 0) + 1;
+      results[q._partId]._seenCount = results[q._partId].total;
+    }
+
     const correct = chosen !== null && q._mixed[chosen].correct;
     if (correct) {
       results[q._partId].correct++;
     } else {
-      // Falsche Frage merken für Auswertung
       if (!results[q._partId].wrongQ) results[q._partId].wrongQ = [];
       results[q._partId].wrongQ.push({
-        number:   q.number,
-        question: q.question,
-        pic_q:    q.picture_question || null,
-        chosen:   chosen !== null ? q._mixed[chosen].text : null,
-        correct:  q._mixed.find(a => a.correct).text,
+        number:      q.number,
+        question:    q.question,
+        pic_q:       q.picture_question || null,
+        chosen:      chosen !== null ? q._mixed[chosen].text : (seen ? '(übersprungen)' : null),
+        correct:     q._mixed.find(a => a.correct).text,
         correct_pic: q._mixed.find(a => a.correct).pic || null,
       });
     }

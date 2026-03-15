@@ -1051,7 +1051,7 @@ h1, h2 { font-family: var(--serif); font-weight: 400; }
   position: fixed;
   inset: 0;
   background: rgba(0,0,0,0.6);
-  z-index: 50;
+  z-index: 70;
   align-items: center;
   justify-content: center;
   padding: 20px;
@@ -1440,7 +1440,7 @@ h1, h2 { font-family: var(--serif); font-weight: 400; }
     <div class="modal-title" id="modal-title">Sicher?</div>
     <div class="modal-body" id="modal-body">Diese Aktion kann nicht rückgängig gemacht werden.</div>
     <div class="modal-actions">
-      <button class="btn-ghost" onclick="closeModal()">Abbrechen</button>
+      <button class="btn-ghost" onclick="closeModal()">Nein, zurück</button>
       <button class="btn-prim" id="modal-confirm-btn">Bestätigen</button>
     </div>
   </div>
@@ -1709,6 +1709,14 @@ function showView(name) {
   document.querySelectorAll('.nav-btn').forEach(b => b.classList.remove('active'));
   document.getElementById('view-' + name).classList.add('active');
   document.querySelector(`.nav-btn[data-view="${name}"]`).classList.add('active');
+
+  // Beim Verlassen der Prüfung: exam-running aufräumen
+  if (name !== 'pruefung') {
+    document.getElementById('exam-running').style.display = 'none';
+    document.getElementById('exam-setup').style.display = 'block';
+    const startBtn = document.querySelector('#exam-setup .btn-prim');
+    if (startBtn) { startBtn.disabled = false; startBtn.textContent = 'Prüfung starten →'; }
+  }
 
   if (name === 'statistik') updateStatistik();
   if (name === 'dashboard') updateDashboard();
@@ -2169,7 +2177,6 @@ function confirmAbort() {
   document.getElementById('modal-confirm-btn').textContent = 'Abbrechen & auswerten';
   document.getElementById('modal-confirm-btn').onclick = () => {
     closeModal();
-    closeModal();
     document.getElementById('pause-overlay').classList.remove('show');
     finishExam(true);
   };
@@ -2329,7 +2336,7 @@ function showAuswertung(results, allPassed) {
       <div class="parts-result">${partRows}</div>
 
       <button class="btn-prim" onclick="newExam()" style="margin-bottom:8px">Neue Prüfung starten</button>
-      <button class="btn-sec" onclick="this.disabled=true;this.textContent='Lädt…';showView('dashboard')">Zurück zum Dashboard</button>
+      <button class="btn-sec" onclick="showView('dashboard')">Zurück zum Dashboard</button>
     </div>`;
 }
 

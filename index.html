@@ -1863,20 +1863,20 @@ function showAuswertung(results, allPassed) {
         </button>
         <div id="wrong-${p.id}" style="display:none;margin-top:10px;display:none"></div>`
       : '';
-    return \`<div class="part-result-row">
+    return `<div class="part-result-row">
       <div class="part-result-head">
-        <span class="part-result-name" style="color:\${p.color}">\${p.label}</span>
-        <span class="part-result-score" style="color:\${col}">\${r.correct}/\${r.total} · \${pct}%</span>
+        <span class="part-result-name" style="color:${p.color}">${p.label}</span>
+        <span class="part-result-score" style="color:${col}">${r.correct}/${r.total} · ${pct}%</span>
       </div>
       <div class="part-result-bar">
-        <div class="part-result-fill" style="width:\${pct}%;background:\${col}"></div>
+        <div class="part-result-fill" style="width:${pct}%;background:${col}"></div>
       </div>
       <div class="part-result-detail">
-        <span>Mindest: 75% (\${Math.ceil(r.total * 0.75)} Fragen)</span>
-        <span style="color:\${col}">\${r.passed ? '✓ bestanden' : '✗ nicht bestanden'}</span>
+        <span>Mindest: 75% (${Math.ceil(r.total * 0.75)} Fragen)</span>
+        <span style="color:${col}">${r.passed ? '✓ bestanden' : '✗ nicht bestanden'}</span>
       </div>
-      \${wrongBtn}
-    </div>\`;
+      ${wrongBtn}
+    </div>`;
   }).join('');
 
   document.getElementById('exam-running').innerHTML = `

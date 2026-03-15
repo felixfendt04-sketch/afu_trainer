@@ -921,7 +921,7 @@ h1, h2 { font-family: var(--serif); font-weight: 400; }
           <div class="part-accent accent-tech"></div>
           <div class="part-info">
             <div class="part-name">Technische Kenntnisse</div>
-            <div class="part-meta" id="pmeta-tech">1374 Fragen · 75 in Prüfung · 105 min</div>
+            <div class="part-meta" id="pmeta-tech">1374 Fragen · 3×25 in Prüfung · je 45/45/60 min</div>
             <div class="pbar"><div class="pbar-fill" id="pbar-tech" style="width:0%;background:var(--green)"></div></div>
           </div>
           <div class="part-pct col-green" id="ppct-tech">0%</div>
@@ -1005,10 +1005,26 @@ h1, h2 { font-family: var(--serif); font-weight: 400; }
           <div class="epart-row">
             <div class="epart-dot" style="background:var(--green)"></div>
             <div class="epart-info">
-              <div class="epart-name">Technische Kenntnisse</div>
-              <div class="epart-meta">Zufällig aus 1374 Fragen</div>
+              <div class="epart-name">Technik Klasse N</div>
+              <div class="epart-meta">Zufällig aus 195 Fragen</div>
             </div>
-            <div class="epart-nums">75 Fragen · 105 min</div>
+            <div class="epart-nums">25 Fragen · 45 min</div>
+          </div>
+          <div class="epart-row">
+            <div class="epart-dot" style="background:var(--green)"></div>
+            <div class="epart-info">
+              <div class="epart-name">Technik Klasse E</div>
+              <div class="epart-meta">Zufällig aus 463 Fragen</div>
+            </div>
+            <div class="epart-nums">25 Fragen · 45 min</div>
+          </div>
+          <div class="epart-row">
+            <div class="epart-dot" style="background:var(--green)"></div>
+            <div class="epart-info">
+              <div class="epart-name">Technik Klasse A</div>
+              <div class="epart-meta">Zufällig aus 716 Fragen</div>
+            </div>
+            <div class="epart-nums">25 Fragen · 60 min</div>
           </div>
           <div class="epart-row">
             <div class="epart-dot" style="background:var(--blue)"></div>
@@ -1024,7 +1040,7 @@ h1, h2 { font-family: var(--serif); font-weight: 400; }
               <div class="epart-name">Vorschriften</div>
               <div class="epart-meta">Zufällig aus 204 Fragen</div>
             </div>
-            <div class="epart-nums">25 Fragen · 30 min</div>
+            <div class="epart-nums">25 Fragen · 45 min</div>
           </div>
         </div>
 
@@ -1032,7 +1048,8 @@ h1, h2 { font-family: var(--serif); font-weight: 400; }
         <div style="background:var(--bg2);border:1px solid var(--line);border-radius:var(--r-md);padding:12px 14px;margin-bottom:24px;font-size:13px;color:var(--text1);line-height:1.7">
           Jeder Prüfungsteil muss <strong style="color:var(--text0)">separat</strong> bestanden werden.<br>
           Mindestens <strong style="color:var(--green)">75% richtige Antworten</strong> pro Teil.<br>
-          Kein Feedback während der Prüfung — Auswertung am Ende.
+          Kein Feedback während der Prüfung — Auswertung am Ende.<br>
+          Gesamtdauer: <strong style="color:var(--text0)">240 Minuten</strong>
         </div>
 
         <button class="btn-prim" onclick="this.disabled=true;this.textContent='Wird vorbereitet…';startExam()">Prüfung starten →</button>
@@ -1643,15 +1660,19 @@ async function nextLearnQ() {
 
 // ── PRÜFUNG ────────────────────────────────────────────────────
 async function startExam() {
-  // 125 Fragen zufällig ziehen
-  const techQ  = weightedSample(CATALOG.technik, 75);
+  // Technik aufgeteilt nach Klassen N, E, A — je 25 Fragen aus eigenem Pool
+  const techNQ = weightedSample(CATALOG.technik.filter(q => q.number.startsWith('N')), 25);
+  const techEQ = weightedSample(CATALOG.technik.filter(q => q.number.startsWith('E')), 25);
+  const techAQ = weightedSample(CATALOG.technik.filter(q => q.number.startsWith('A')), 25);
   const betrQ  = weightedSample(CATALOG.betrieb, 25);
   const vorQ   = weightedSample(CATALOG.vorschriften, 25);
 
   const parts = [
-    { id:'tech', label:'Technische Kenntnisse',   color:getComputedStyle(document.documentElement).getPropertyValue('--green') || '#4caf6e',  questions: techQ,  time: 105*60 },
-    { id:'betr', label:'Betriebliche Kenntnisse', color:getComputedStyle(document.documentElement).getPropertyValue('--blue')  || '#5b9bd5',   questions: betrQ,  time: 45*60  },
-    { id:'vor',  label:'Vorschriften',             color:getComputedStyle(document.documentElement).getPropertyValue('--purple')|| '#9b7ed4',  questions: vorQ,   time: 30*60  },
+    { id:'techN', label:'Technik Klasse N', color:'#4caf6e', questions: techNQ, time: 45*60 },
+    { id:'techE', label:'Technik Klasse E', color:'#4caf6e', questions: techEQ, time: 45*60 },
+    { id:'techA', label:'Technik Klasse A', color:'#4caf6e', questions: techAQ, time: 60*60 },
+    { id:'betr',  label:'Betriebliche Kenntnisse', color:'#5b9bd5', questions: betrQ, time: 45*60 },
+    { id:'vor',   label:'Vorschriften',            color:'#9b7ed4', questions: vorQ,  time: 45*60 },
   ];
 
   // Antworten für alle Fragen vorher mischen und speichern
@@ -1677,7 +1698,7 @@ async function startExam() {
     current:    0,
     startTime:  Date.now(),
     timerStart: Date.now(),
-    totalTime:  (105 + 45 + 30) * 60,
+    totalTime:  (45 + 45 + 60 + 45 + 45) * 60,
     timerInterval: null,
     done: false,
   };
@@ -1848,9 +1869,11 @@ function finishExam() {
   STATS.history.push({
     date: new Date().toISOString(),
     passed: allPassed,
-    tech: results.tech,
-    betr: results.betr,
-    vor:  results.vor,
+    techN: results.techN,
+    techE: results.techE,
+    techA: results.techA,
+    betr:  results.betr,
+    vor:   results.vor,
   });
   saveStats();
   examState._lastResults = results; // für Falsch-Listen in Auswertung
@@ -1986,11 +2009,16 @@ function updateStatistik() {
     const vPct = h.vor  ? Math.round(h.vor.correct/h.vor.total*100)   : 0;
     const col  = h.passed ? 'var(--green)' : 'var(--red)';
 
+    const nPct = h.techN ? Math.round(h.techN.correct/h.techN.total*100) : 0;
+    const ePct = h.techE ? Math.round(h.techE.correct/h.techE.total*100) : 0;
+    const aPct = h.techA ? Math.round(h.techA.correct/h.techA.total*100) : 0;
     return `<div class="history-item">
       <div class="history-date">${dateStr}</div>
       <div class="history-parts">
-        <div class="hpart"><div class="hpart-lbl">TECH</div><div style="color:${tPct>=75?'var(--green)':'var(--red)'};font-weight:500">${tPct}%</div></div>
-        <div class="hpart"><div class="hpart-lbl">BETR</div><div style="color:${bPct>=75?'var(--green)':'var(--red)'};font-weight:500">${bPct}%</div></div>
+        <div class="hpart"><div class="hpart-lbl">T-N</div><div style="color:${nPct>=75?'var(--green)':'var(--red)'};font-weight:500">${nPct}%</div></div>
+        <div class="hpart"><div class="hpart-lbl">T-E</div><div style="color:${ePct>=75?'var(--green)':'var(--red)'};font-weight:500">${ePct}%</div></div>
+        <div class="hpart"><div class="hpart-lbl">T-A</div><div style="color:${aPct>=75?'var(--green)':'var(--red)'};font-weight:500">${aPct}%</div></div>
+        <div class="hpart"><div class="hpart-lbl">BET</div><div style="color:${bPct>=75?'var(--green)':'var(--red)'};font-weight:500">${bPct}%</div></div>
         <div class="hpart"><div class="hpart-lbl">VOR</div><div style="color:${vPct>=75?'var(--green)':'var(--red)'};font-weight:500">${vPct}%</div></div>
       </div>
       <div class="result-badge ${h.passed ? 'badge-pass' : 'badge-fail'}">${h.passed ? '✓' : '✗'}</div>

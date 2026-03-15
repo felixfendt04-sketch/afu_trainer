@@ -1440,7 +1440,7 @@ h1, h2 { font-family: var(--serif); font-weight: 400; }
     <div class="modal-title" id="modal-title">Sicher?</div>
     <div class="modal-body" id="modal-body">Diese Aktion kann nicht rückgängig gemacht werden.</div>
     <div class="modal-actions">
-      <button class="btn-ghost" onclick="closeModal()">Nein, zurück</button>
+      <button class="btn-ghost" onclick="cancelAbort()">Nein, zurück</button>
       <button class="btn-prim" id="modal-confirm-btn">Bestätigen</button>
     </div>
   </div>
@@ -2168,6 +2168,14 @@ function resumeExam() {
   document.getElementById('pause-overlay').classList.remove('show');
   examState.timerInterval = setInterval(() => updateExamTimer(), 1000);
   updateExamTimer();
+}
+
+function cancelAbort() {
+  closeModal();
+  // Pause-Overlay wieder zeigen falls wir aus confirmAbort kommen
+  if (examState && !examState.done) {
+    document.getElementById('pause-overlay').classList.add('show');
+  }
 }
 
 function confirmAbort() {

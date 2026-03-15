@@ -1380,7 +1380,7 @@ async function startApp() {
 
     updateDashboard();
     buildLearnQueue();
-    renderLearnQ();
+    await renderLearnQ();
 
   } catch(err) {
     document.getElementById('loader-msg').textContent = 'Fehler: ' + err.message + ' — fragenkatalog3b.json im gleichen Ordner?';
@@ -1456,13 +1456,13 @@ function updateDashboard() {
 }
 
 // ── LERNEN ─────────────────────────────────────────────────────
-function setFilter(f) {
+async function setFilter(f) {
   learnFilter = f;
   document.querySelectorAll('.chip[data-filter]').forEach(c => {
     c.classList.toggle('active', c.dataset.filter === f);
   });
   buildLearnQueue();
-  renderLearnQ();
+  await renderLearnQ();
 }
 
 function getFilteredPool() {
@@ -1635,7 +1635,7 @@ async function nextLearnQ() {
 }
 
 // ── PRÜFUNG ────────────────────────────────────────────────────
-function startExam() {
+async function startExam() {
   // 125 Fragen zufällig ziehen
   const techQ  = weightedSample(CATALOG.technik, 75);
   const betrQ  = weightedSample(CATALOG.betrieb, 25);
@@ -1677,7 +1677,7 @@ function startExam() {
 
   document.getElementById('exam-setup').style.display    = 'none';
   document.getElementById('exam-running').style.display  = 'block';
-  renderExamQ();
+  await renderExamQ();
   startExamTimer();
 }
 
@@ -1697,10 +1697,15 @@ async function renderExamQ() {
     return `<div class="${cls}" onclick="jumpToExamQ(${i})" title="Frage ${i+1}"></div>`;
   }).join('');
 
+  // SVGs für Antworten vorher laden
+  const examAnsImgs = {};
+  for (const a of q._mixed) {
+    if (a.pic) examAnsImgs[a.pic] = await getSvg(a.pic);
+  }
   const ansHtml = q._mixed.map((a, i) => {
     const sel = es.answers[es.current] === i ? 'selected' : '';
     let ansImg = '';
-    if (a.pic) { const s = await getSvg(a.pic); if (s) ansImg = `<div class="ans-svg-wrap">${s}</div>`; }
+    if (a.pic && examAnsImgs[a.pic]) ansImg = `<div class="ans-svg-wrap">${examAnsImgs[a.pic]}</div>`;
     return `<button class="exam-ans ${sel}" onclick="selectExamAns(${i})">
       <span class="ans-letter">${String.fromCharCode(65+i)}</span>
       <span>${renderLatex(a.text)}${ansImg}</span>

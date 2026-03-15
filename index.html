@@ -1035,7 +1035,7 @@ h1, h2 { font-family: var(--serif); font-weight: 400; }
           Kein Feedback während der Prüfung — Auswertung am Ende.
         </div>
 
-        <button class="btn-prim" onclick="startExam()">Prüfung starten →</button>
+        <button class="btn-prim" onclick="this.disabled=true;this.textContent='Wird vorbereitet…';startExam()">Prüfung starten →</button>
       </div>
 
       <div id="exam-running" style="display:none">
@@ -1460,9 +1460,14 @@ async function setFilter(f) {
   learnFilter = f;
   document.querySelectorAll('.chip[data-filter]').forEach(c => {
     c.classList.toggle('active', c.dataset.filter === f);
+    c.style.pointerEvents = 'none';
   });
   buildLearnQueue();
   await renderLearnQ();
+  // Chips wieder aktivieren
+  document.querySelectorAll('.chip[data-filter]').forEach(c => {
+    c.style.pointerEvents = '';
+  });
 }
 
 function getFilteredPool() {
@@ -1629,6 +1634,8 @@ function handleLearnAnswer(btn, correct) {
 }
 
 async function nextLearnQ() {
+  const btn = document.getElementById('learn-next-btn');
+  if (btn) { btn.disabled = true; btn.textContent = '…'; }
   learnIdx++;
   if (learnIdx >= learnQueue.length) buildLearnQueue();
   await renderLearnQ();
@@ -1749,16 +1756,20 @@ async function renderExamQ() {
 }
 
 async function selectExamAns(idx) {
+  document.querySelectorAll('.exam-ans').forEach(b => b.disabled = true);
   examState.answers[examState.current] = idx;
   await renderExamQ();
 }
 
 async function examNav(dir) {
+  // Alle Buttons kurz deaktivieren
+  document.querySelectorAll('.btn-exam-next, .btn-ghost').forEach(b => b.disabled = true);
   examState.current = Math.max(0, Math.min(examState.questions.length - 1, examState.current + dir));
   await renderExamQ();
 }
 
 async function jumpToExamQ(idx) {
+  document.querySelectorAll('.edot').forEach(d => d.style.pointerEvents = 'none');
   examState.current = idx;
   await renderExamQ();
 }
@@ -2065,6 +2076,8 @@ function showToast(msg) {
 
 async function manualSync() {
   const el = document.getElementById('sync-status');
+  const btn = document.querySelector('[onclick="manualSync()"]');
+  if (btn) { btn.disabled = true; btn.textContent = '↕ Synchronisiere…'; }
   if (el) el.textContent = 'Synchronisiere…';
   const cloudData = await cloudLoad();
   if (cloudData) {
@@ -2081,6 +2094,7 @@ async function manualSync() {
       : '✗ Keine Verbindung — lokaler Stand gespeichert';
     el.style.color = saved ? 'var(--green)' : 'var(--amber)';
   }
+  if (btn) { btn.disabled = false; btn.textContent = '↕ Jetzt synchronisieren'; }
   showToast(saved ? 'Cloud-Sync erfolgreich' : 'Offline — lokal gespeichert');
 }
 

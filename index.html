@@ -646,6 +646,41 @@ h1, h2 { font-family: var(--serif); font-weight: 400; }
   flex-shrink: 0;
 }
 
+/* Pause-Overlay */
+#pause-overlay {
+  display: none;
+  position: fixed;
+  inset: 0;
+  background: var(--bg0);
+  z-index: 45;
+  align-items: center;
+  justify-content: center;
+  padding: 20px;
+}
+#pause-overlay.show { display: flex; }
+.pause-box {
+  background: var(--bg1);
+  border: 1px solid var(--line2);
+  border-radius: var(--r-lg);
+  padding: 28px 24px;
+  text-align: center;
+  max-width: 320px;
+  width: 100%;
+}
+.pause-title {
+  font-family: var(--serif);
+  font-size: 24px;
+  color: var(--text0);
+  margin-bottom: 6px;
+}
+.pause-meta {
+  font-family: var(--mono);
+  font-size: 12px;
+  color: var(--text2);
+  margin-bottom: 24px;
+}
+.pause-actions { display: flex; flex-direction: column; gap: 8px; }
+
 .btn-ghost {
   padding: 10px 16px;
   background: transparent;
@@ -1066,7 +1101,7 @@ h1, h2 { font-family: var(--serif); font-weight: 400; }
     <span id="hilfs-title">HILFSMITTEL — BNetzA Amateurfunkprüfungen</span>
     <button id="hilfs-close" onclick="toggleHilfs()">✕ Schließen</button>
   </div>
-  <iframe id="hilfs-iframe" src="hilfsmittel.pdf"></iframe>
+  <iframe id="hilfs-iframe" src="https://docs.google.com/viewer?url=https://felixfendt04-sketch.github.io/afu_trainer/hilfsmittel.pdf&embedded=true"></iframe>
 </div>
 
 <div id="loader">
@@ -1359,6 +1394,18 @@ h1, h2 { font-family: var(--serif); font-weight: 400; }
       <svg viewBox="0 0 24 24"><line x1="18" y1="20" x2="18" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/><line x1="6" y1="20" x2="6" y2="14"/></svg>
       Statistik
     </button>
+  </div>
+</div>
+
+<!-- PAUSE -->
+<div id="pause-overlay">
+  <div class="pause-box">
+    <div class="pause-title">Pausiert</div>
+    <div class="pause-meta" id="pause-meta">Frage 0 / 125 · Zeit läuft nicht</div>
+    <div class="pause-actions">
+      <button class="btn-prim" onclick="resumeExam()">Weiter →</button>
+      <button class="btn-sec" style="color:var(--red);border-color:rgba(224,92,92,0.3)" onclick="confirmAbort()">Prüfung abbrechen</button>
+    </div>
   </div>
 </div>
 
@@ -1976,10 +2023,16 @@ async function renderExamQ() {
     partBoundaries.add(cumulative);
   });
 
+  // Farben für Trennlinien zwischen den Teilen
+  const dividerColors = ['#00e5ff', '#ff9100', '#e040fb', '#40c4ff'];
+  let dividerIdx = 0;
+
   const dotsArr = [];
   es.questions.forEach((_, i) => {
     if (i > 0 && partBoundaries.has(i)) {
-      dotsArr.push(`<div class="edot-divider"></div>`);
+      const col = dividerColors[dividerIdx % dividerColors.length];
+      dividerIdx++;
+      dotsArr.push(`<div class="edot-divider" style="background:${col}"></div>`);
     }
     let cls = 'edot';
     if (i === es.current) cls += ' current';
@@ -2030,8 +2083,9 @@ async function renderExamQ() {
     </div>
     <div class="exam-footer">
       <button class="btn-ghost" onclick="examNav(-1)" ${es.current === 0 ? 'disabled style="opacity:0.3"' : ''}>←</button>
+      <button class="btn-ghost" onclick="pauseExam()" title="Pausieren">⏸</button>
       ${isLast
-        ? `<button class="btn-exam-next" style="background:var(--amber);color:#0a0a0a" onclick="finishExam()">Prüfung abgeben →</button>`
+        ? `<button class="btn-exam-next" style="background:var(--amber);color:#0a0a0a" onclick="finishExam()">Abgeben →</button>`
         : `<button class="btn-exam-next" onclick="examNav(1)">Weiter →</button>`
       }
     </div>`;
@@ -2073,6 +2127,44 @@ function showPartTransition(partIdx) {
 async function dismissTransition() {
   document.getElementById('part-transition').classList.remove('show');
   await renderExamQ();
+}
+
+function pauseExam() {
+  if (!examState || examState.done) return;
+  // Timer pausieren
+  clearInterval(examState.timerInterval);
+  examState.pausedAt = Date.now();
+  // Pause-Overlay anzeigen
+  const answered = examState.answers.filter(a => a !== null).length;
+  document.getElementById('pause-meta').textContent =
+    `Frage ${examState.current + 1} / ${examState.questions.length} · ${answered} beantwortet`;
+  document.getElementById('pause-overlay').classList.add('show');
+}
+
+function resumeExam() {
+  if (!examState) return;
+  // Timer fortsetzen — vergangene Pausenzeit abziehen
+  if (examState.pausedAt) {
+    const pauseDuration = Date.now() - examState.pausedAt;
+    examState.timerStart += pauseDuration;
+    examState.pausedAt = null;
+  }
+  document.getElementById('pause-overlay').classList.remove('show');
+  examState.timerInterval = setInterval(() => updateExamTimer(), 1000);
+  updateExamTimer();
+}
+
+function confirmAbort() {
+  document.getElementById('modal-title').textContent = 'Prüfung abbrechen?';
+  document.getElementById('modal-body').textContent =
+    'Die Prüfung wird abgebrochen und mit dem bisherigen Stand ausgewertet. Unbeantwortete Fragen zählen als falsch.';
+  document.getElementById('modal-confirm-btn').textContent = 'Abbrechen & auswerten';
+  document.getElementById('modal-confirm-btn').onclick = () => {
+    closeModal();
+    document.getElementById('pause-overlay').classList.remove('show');
+    finishExam();
+  };
+  document.getElementById('modal-overlay').classList.add('show');
 }
 
 async function jumpToExamQ(idx) {

@@ -1,0 +1,12 @@
+{
+  "name": "Amateurfunk Trainer Klasse A",
+  "short_name": "50Ω Trainer",
+  "description": "Prüfungsvorbereitung Amateurfunk Klasse A nach BNetzA",
+  "start_url": ".",
+  "display": "standalone",
+  "background_color": "#0d1710",
+  "theme_color": "#0d1710",
+  "icons": [
+    { "src": "icon.svg", "sizes": "any", "type": "image/svg+xml" }
+  ]
+}

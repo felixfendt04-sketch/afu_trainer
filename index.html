@@ -875,14 +875,23 @@ h1, h2 { font-family: var(--serif); font-weight: 400; }
     </div>
     <div class="login-err" id="login-err"></div>
     <button class="btn-prim" onclick="doLogin()">Einloggen →</button>
-    <div class="login-hint">Nur für autorisierte Nutzer.<br>Konto wird von Supabase verwaltet.</div>
+    <div style="display:flex;align-items:center;gap:10px;margin:14px 0 0">
+      <div style="flex:1;height:1px;background:var(--line)"></div>
+      <span style="font-size:11px;color:var(--text2);font-family:var(--mono)">oder</span>
+      <div style="flex:1;height:1px;background:var(--line)"></div>
+    </div>
+    <button class="btn-sec" style="margin-top:10px" onclick="startGuest()">Ohne Account starten</button>
+    <div class="login-hint">Ohne Account: kein Sync zwischen Geräten.<br>Lernstand nur lokal gespeichert.</div>
   </div>
 </div>
 
 <div id="app" style="display:none">
   <div id="topbar">
     <div class="topbar-logo">50Ω<span>.local</span></div>
+    <div style="display:flex;align-items:center;gap:8px">
     <div class="topbar-badge">KLASSE A</div>
+    <div id="topbar-user" style="font-family:var(--mono);font-size:10px;color:var(--text2);cursor:pointer" onclick="handleLogout()" title="Ausloggen"></div>
+  </div>
   </div>
 
   <div id="main">
@@ -1078,7 +1087,7 @@ h1, h2 { font-family: var(--serif); font-weight: 400; }
       <div class="divider"></div>
       <div class="section-label">Cloud-Sync (Supabase)</div>
       <div style="background:var(--bg2);border:1px solid var(--line);border-radius:var(--r-md);padding:12px 14px;margin-bottom:12px;font-size:12px;color:var(--text2);line-height:1.7">
-        Lernstand wird automatisch mit der Cloud synchronisiert — auf allen Geräten gleich.
+        <span id="sync-desc">Lernstand wird automatisch mit der Cloud synchronisiert — auf allen Geräten gleich.</span>
       </div>
       <div style="display:flex;gap:8px;margin-bottom:8px">
         <button class="btn-prim" style="flex:1;padding:10px;font-size:12px" onclick="manualSync()">↕ Jetzt synchronisieren</button>
@@ -1124,10 +1133,11 @@ h1, h2 { font-family: var(--serif); font-weight: 400; }
 
 <script>
 // ── SUPABASE CONFIG ────────────────────────────────────────────
-const SUPA_URL = 'https://bgpgmnxibvhrveaxkgvt.supabase.co';
-const SUPA_KEY = 'sb_publishable_HZ99XDEC4d3CMteJZpDdfw_a_5HCULg';
+const SUPA_URL = '__SUPABASE_URL__';
+const SUPA_KEY = '__SUPABASE_KEY__';
 let supaClient = null;
 let supaUser   = null;
+let guestMode  = false;
 
 function getSupaClient() {
   if (!supaClient && window.supabase) {
@@ -1150,6 +1160,22 @@ async function doLogin() {
   supaUser = data.user;
   document.getElementById('login-screen').classList.remove('show');
   err.textContent = '';
+  await startApp();
+}
+
+async function handleLogout() {
+  if (guestMode) return;
+  if (!confirm('Ausloggen?')) return;
+  const sb = getSupaClient();
+  if (sb) await sb.auth.signOut();
+  supaUser  = null;
+  guestMode = false;
+  document.getElementById('login-screen').classList.add('show');
+}
+
+async function startGuest() {
+  guestMode = true;
+  document.getElementById('login-screen').classList.remove('show');
   await startApp();
 }
 
@@ -1206,10 +1232,11 @@ function mergeStats(local, cloud) {
 // ── STATE ──────────────────────────────────────────────────────
 let CATALOG = null;   // { technik: [], betrieb: [], vorschriften: [], svgs: {} }
 let STATS   = null;   // { seen: {num: {correct:0, wrong:0, lastWrong:bool}}, history: [] }
-let learnQueue = [];
-let learnIdx   = 0;
+let learnQueue  = [];
+let learnIdx    = 0;
 let learnFilter = 'all';
-let examState  = null;
+let examState   = null;
+let roundSeen   = new Set(); // garantierter Durchlauf
 
 // ── STORAGE ────────────────────────────────────────────────────
 const STATS_KEY = 'afu_stats_v2';
@@ -1224,7 +1251,21 @@ function loadStats() {
 
 function saveStats() {
   try { localStorage.setItem(STATS_KEY, JSON.stringify(STATS)); } catch(e) {}
-  cloudSave(); // asynchron in Supabase speichern, kein await nötig
+  if (!guestMode) cloudSave();
+}
+
+// ── LAZY SVG LADEN ─────────────────────────────────────────────
+async function getSvg(key) {
+  if (!key) return '';
+  if (CATALOG.svgs[key]) return CATALOG.svgs[key];
+  try {
+    const r = await fetch(`svgs/${key}.svg`);
+    if (r.ok) {
+      CATALOG.svgs[key] = prepareSvg(await r.text());
+      return CATALOG.svgs[key];
+    }
+  } catch(e) {}
+  return '';
 }
 
 // ── SVG AUFBEREITUNG ───────────────────────────────────────────
@@ -1312,26 +1353,11 @@ async function startApp() {
     const BETR_TOP  = 'Prüfungsfragen im Prüfungsteil: Betriebliche Kenntnisse';
     const VOR_TOP   = 'Prüfungsfragen im Prüfungsteil: Kenntnisse von Vorschriften';
 
-    // SVGs laden
-    document.getElementById('loader-msg').textContent = 'Lade Bilder…';
-    const svgs = {};
-    const svgKeys = new Set();
-    all.forEach(q => {
-      if (q.picture_question) svgKeys.add(q.picture_question);
-      ['a','b','c','d'].forEach(s => { if (q[`picture_${s}`]) svgKeys.add(q[`picture_${s}`]); });
-    });
-    for (const key of svgKeys) {
-      try {
-        const r = await fetch(`svgs/${key}.svg`);
-        if (r.ok) svgs[key] = prepareSvg(await r.text());
-      } catch(e) {}
-    }
-
     CATALOG = {
       technik:      all.filter(q => q._top === TECH_TOP),
       betrieb:      all.filter(q => q._top === BETR_TOP),
       vorschriften: all.filter(q => q._top === VOR_TOP),
-      svgs
+      svgs: {} // lazy geladen
     };
 
     document.getElementById('loader-msg').textContent = 'Bereit.';
@@ -1339,6 +1365,18 @@ async function startApp() {
 
     document.getElementById('loader').style.display = 'none';
     document.getElementById('app').style.display = 'flex';
+
+    // Topbar User-Info
+    const userEl = document.getElementById('topbar-user');
+    if (userEl) {
+      if (guestMode) {
+        userEl.textContent = 'Gast';
+        userEl.title = '';
+      } else if (supaUser) {
+        userEl.textContent = supaUser.email.split('@')[0] + ' ↩';
+        userEl.title = 'Ausloggen';
+      }
+    }
 
     updateDashboard();
     buildLearnQueue();
@@ -1439,12 +1477,20 @@ function getFilteredPool() {
 }
 
 function buildLearnQueue() {
-  // Gewichtete Auswahl: Schwächen 3×, normal 1×, sicher 0.3×
   const pool = getFilteredPool();
   if (pool.length === 0) { learnQueue = []; learnIdx = 0; return; }
 
+  // Garantierter Durchlauf: Fragen die noch nicht dran waren bevorzugen
+  // Wenn alle durch → roundSeen zurücksetzen
+  const notYetSeen = pool.filter(q => !roundSeen.has(q.number));
+  if (notYetSeen.length === 0) {
+    roundSeen = new Set();
+  }
+  const available = roundSeen.size === 0 ? pool : (notYetSeen.length > 0 ? notYetSeen : pool);
+
+  // Gewichtet samplen: Schwächen 3×, neu/unbekannt 1×, sicher 0.3×
   const weighted = [];
-  pool.forEach(q => {
+  available.forEach(q => {
     const s = STATS.seen[q.number];
     let w = 1;
     if (!s) w = 1;
@@ -1461,11 +1507,11 @@ function buildLearnQueue() {
   }
 
   // Dedupliziert max 50 Fragen
-  const seen = new Set();
+  const picked = new Set();
   learnQueue = [];
   for (const q of weighted) {
-    if (!seen.has(q.number)) {
-      seen.add(q.number);
+    if (!picked.has(q.number)) {
+      picked.add(q.number);
       learnQueue.push(q);
     }
     if (learnQueue.length >= 50) break;
@@ -1473,7 +1519,7 @@ function buildLearnQueue() {
   learnIdx = 0;
 }
 
-function renderLearnQ() {
+async function renderLearnQ() {
   const container = document.getElementById('learn-q-container');
   const empty = document.getElementById('learn-empty');
 
@@ -1511,17 +1557,22 @@ function renderLearnQ() {
     tagHtml += `<span class="tag tag-sec">neu</span>`;
   }
 
-  // Fragenbild
+  // Fragenbild lazy laden
   let imgHtml = '';
-  if (q.picture_question && CATALOG.svgs[q.picture_question]) {
-    imgHtml = `<div class="q-img"><div class="svg-wrap">${CATALOG.svgs[q.picture_question]}</div></div>`;
+  if (q.picture_question) {
+    const svgContent = await getSvg(q.picture_question);
+    if (svgContent) imgHtml = `<div class="q-img"><div class="svg-wrap">${svgContent}</div></div>`;
   }
 
-  // Antworten-HTML
+  // Antworten-HTML (Bilder lazy laden)
+  const ansImgs = {};
+  for (const a of answers) {
+    if (a.pic) ansImgs[a.pic] = await getSvg(a.pic);
+  }
   const ansHtml = answers.map((a, i) => {
     let ansImgHtml = '';
-    if (a.pic && CATALOG.svgs[a.pic]) {
-      ansImgHtml = `<div class="ans-svg-wrap">${CATALOG.svgs[a.pic]}</div>`;
+    if (a.pic && ansImgs[a.pic]) {
+      ansImgHtml = `<div class="ans-svg-wrap">${ansImgs[a.pic]}</div>`;
     }
     return `<button class="ans-btn" data-correct="${a.correct}" onclick="handleLearnAnswer(this, ${a.correct})">
       <span class="ans-letter">${String.fromCharCode(65+i)}</span>
@@ -1571,15 +1622,16 @@ function handleLearnAnswer(btn, correct) {
   const s = STATS.seen[q.number];
   if (correct) { s.correct++; s.lastWrong = false; }
   else         { s.wrong++;   s.lastWrong = true;  }
+  roundSeen.add(q.number); // als "dran gewesen" markieren
   saveStats();
 
   document.getElementById('learn-next-btn')?.classList.add('show');
 }
 
-function nextLearnQ() {
+async function nextLearnQ() {
   learnIdx++;
   if (learnIdx >= learnQueue.length) buildLearnQueue();
-  renderLearnQ();
+  await renderLearnQ();
 }
 
 // ── PRÜFUNG ────────────────────────────────────────────────────
@@ -1629,7 +1681,7 @@ function startExam() {
   startExamTimer();
 }
 
-function renderExamQ() {
+async function renderExamQ() {
   const es = examState;
   const q  = es.questions[es.current];
   const part = es.parts[q._partIdx];
@@ -1648,7 +1700,7 @@ function renderExamQ() {
   const ansHtml = q._mixed.map((a, i) => {
     const sel = es.answers[es.current] === i ? 'selected' : '';
     let ansImg = '';
-    if (a.pic && CATALOG.svgs[a.pic]) ansImg = `<div class="ans-svg-wrap">${CATALOG.svgs[a.pic]}</div>`;
+    if (a.pic) { const s = await getSvg(a.pic); if (s) ansImg = `<div class="ans-svg-wrap">${s}</div>`; }
     return `<button class="exam-ans ${sel}" onclick="selectExamAns(${i})">
       <span class="ans-letter">${String.fromCharCode(65+i)}</span>
       <span>${renderLatex(a.text)}${ansImg}</span>
@@ -1656,8 +1708,9 @@ function renderExamQ() {
   }).join('');
 
   let qImgHtml = '';
-  if (q.picture_question && CATALOG.svgs[q.picture_question]) {
-    qImgHtml = `<div style="margin-bottom:12px"><div class="svg-wrap">${CATALOG.svgs[q.picture_question]}</div></div>`;
+  if (q.picture_question) {
+    const svgC = await getSvg(q.picture_question);
+    if (svgC) qImgHtml = `<div style="margin-bottom:12px"><div class="svg-wrap">${svgC}</div></div>`;
   }
 
   const isLast = es.current === es.questions.length - 1;
@@ -1690,19 +1743,19 @@ function renderExamQ() {
   updateExamTimer();
 }
 
-function selectExamAns(idx) {
+async function selectExamAns(idx) {
   examState.answers[examState.current] = idx;
-  renderExamQ();
+  await renderExamQ();
 }
 
-function examNav(dir) {
+async function examNav(dir) {
   examState.current = Math.max(0, Math.min(examState.questions.length - 1, examState.current + dir));
-  renderExamQ();
+  await renderExamQ();
 }
 
-function jumpToExamQ(idx) {
+async function jumpToExamQ(idx) {
   examState.current = idx;
-  renderExamQ();
+  await renderExamQ();
 }
 
 function startExamTimer() {
@@ -1828,6 +1881,13 @@ function newExam() {
 
 // ── STATISTIK ──────────────────────────────────────────────────
 function updateStatistik() {
+  // Sync-Beschreibung je nach Modus
+  const syncDesc = document.getElementById('sync-desc');
+  const syncBtn  = document.querySelector('[onclick="manualSync()"]');
+  if (syncDesc && guestMode) {
+    syncDesc.textContent = 'Gastmodus — kein Cloud-Sync. Lernstand nur lokal gespeichert.';
+    if (syncBtn) { syncBtn.disabled = true; syncBtn.style.opacity = '0.4'; }
+  }
   const allQ = [...CATALOG.technik, ...CATALOG.betrieb, ...CATALOG.vorschriften];
   const seen = Object.keys(STATS.seen).length;
   const ok   = Object.values(STATS.seen).filter(s => s.correct >= 2 && !s.lastWrong).length;

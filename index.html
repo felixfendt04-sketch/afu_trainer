@@ -556,6 +556,60 @@ h1, h2 { font-family: var(--serif); font-weight: 400; }
 .edot.current  { background: var(--green); }
 .edot.skipped  { background: var(--amber); }
 
+.edot-divider {
+  width: 2px;
+  height: 7px;
+  background: var(--line2);
+  border-radius: 1px;
+  flex-shrink: 0;
+}
+
+/* Übergangs-Karte */
+#part-transition {
+  display: none;
+  position: fixed;
+  inset: 0;
+  background: rgba(0,0,0,0.7);
+  z-index: 45;
+  align-items: center;
+  justify-content: center;
+  padding: 20px;
+}
+#part-transition.show { display: flex; }
+.part-transition-box {
+  background: var(--bg1);
+  border: 1px solid var(--line2);
+  border-radius: var(--r-lg);
+  padding: 28px 24px;
+  text-align: center;
+  max-width: 320px;
+  width: 100%;
+}
+.part-transition-num {
+  font-family: var(--mono);
+  font-size: 11px;
+  color: var(--text2);
+  letter-spacing: 1px;
+  margin-bottom: 10px;
+}
+.part-transition-name {
+  font-family: var(--serif);
+  font-size: 22px;
+  color: var(--text0);
+  margin-bottom: 8px;
+}
+.part-transition-meta {
+  font-family: var(--mono);
+  font-size: 12px;
+  color: var(--text2);
+  margin-bottom: 20px;
+}
+.part-transition-bar {
+  height: 2px;
+  border-radius: 1px;
+  margin-bottom: 20px;
+}
+
 .exam-body { flex: 1; overflow-y: auto; padding: 16px 20px; }
 
 .exam-q-text { font-size: 15px; color: var(--text0); line-height: 1.55; margin-bottom: 14px; }
@@ -732,25 +786,19 @@ h1, h2 { font-family: var(--serif); font-weight: 400; }
 .divider { height: 1px; background: var(--line); margin: 16px 0; }
 
 /* ── HILFSMITTEL ────────────────────────────────────────────── */
-#hilfs-btn {
-  position: fixed;
-  bottom: 72px;
-  right: 14px;
-  background: var(--amber);
-  color: #1a0e00;
-  border: none;
-  border-radius: var(--r-md);
-  padding: 8px 12px;
-  font-size: 11px;
-  font-weight: 500;
+#hilfs-topbar-btn {
   font-family: var(--mono);
+  font-size: 10px;
+  letter-spacing: 0.5px;
+  padding: 3px 8px;
+  border-radius: var(--r-sm);
+  background: var(--amber-bg);
+  color: var(--amber);
+  border: 1px solid rgba(212,148,58,0.35);
   cursor: pointer;
-  z-index: 40;
-  letter-spacing: 0.3px;
-  box-shadow: 0 2px 8px rgba(0,0,0,0.4);
   transition: opacity 0.15s;
 }
-#hilfs-btn:hover { opacity: 0.85; }
+#hilfs-topbar-btn:hover { opacity: 0.8; }
 
 #hilfs-overlay {
   display: none;
@@ -1012,7 +1060,6 @@ h1, h2 { font-family: var(--serif); font-weight: 400; }
 <body>
 
 <!-- HILFSMITTEL -->
-<button id="hilfs-btn" onclick="toggleHilfs()">📋 Hilfsmittel</button>
 
 <div id="hilfs-overlay">
   <div id="hilfs-header">
@@ -1057,7 +1104,10 @@ h1, h2 { font-family: var(--serif); font-weight: 400; }
   <div id="topbar">
     <div class="topbar-logo">50Ω<span>.local</span></div>
     <div style="display:flex;align-items:center;gap:8px">
+    <div style="display:flex;align-items:center;gap:6px">
+    <button id="hilfs-topbar-btn" onclick="toggleHilfs()">📋 Hilfsmittel</button>
     <div class="topbar-badge">KLASSE A</div>
+  </div>
     <div id="topbar-user" style="font-family:var(--mono);font-size:10px;color:var(--text2);cursor:pointer" onclick="handleLogout()" title="Ausloggen"></div>
   </div>
   </div>
@@ -1120,17 +1170,25 @@ h1, h2 { font-family: var(--serif); font-weight: 400; }
           <div class="last-sim-title" id="last-sim-date">Noch keine Simulation durchgeführt</div>
           <div class="result-badge badge-none" id="last-sim-badge">—</div>
         </div>
-        <div class="sim-parts-row">
+        <div class="sim-parts-row" style="flex-wrap:wrap;gap:4px">
           <div class="sim-part-pill">
-            <div class="pill-lbl">TECHNIK</div>
-            <div class="pill-val" id="last-tech-score">—</div>
+            <div class="pill-lbl">T-N</div>
+            <div class="pill-val" id="last-techN-score">—</div>
           </div>
           <div class="sim-part-pill">
-            <div class="pill-lbl">BETRIEB</div>
+            <div class="pill-lbl">T-E</div>
+            <div class="pill-val" id="last-techE-score">—</div>
+          </div>
+          <div class="sim-part-pill">
+            <div class="pill-lbl">T-A</div>
+            <div class="pill-val" id="last-techA-score">—</div>
+          </div>
+          <div class="sim-part-pill">
+            <div class="pill-lbl">BET</div>
             <div class="pill-val" id="last-betr-score">—</div>
           </div>
           <div class="sim-part-pill">
-            <div class="pill-lbl">VORSCHRIFTEN</div>
+            <div class="pill-lbl">VOR</div>
             <div class="pill-val" id="last-vor-score">—</div>
           </div>
         </div>
@@ -1301,6 +1359,17 @@ h1, h2 { font-family: var(--serif); font-weight: 400; }
       <svg viewBox="0 0 24 24"><line x1="18" y1="20" x2="18" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/><line x1="6" y1="20" x2="6" y2="14"/></svg>
       Statistik
     </button>
+  </div>
+</div>
+
+<!-- PRÜFUNGSTEIL-ÜBERGANG -->
+<div id="part-transition">
+  <div class="part-transition-box">
+    <div class="part-transition-num" id="pt-num">TEIL 2 VON 5</div>
+    <div class="part-transition-name" id="pt-name">Technik Klasse E</div>
+    <div class="part-transition-meta" id="pt-meta">25 Fragen · 45 Minuten</div>
+    <div class="part-transition-bar" id="pt-bar"></div>
+    <button class="btn-prim" onclick="dismissTransition()" style="font-size:13px;padding:10px">Weiter →</button>
   </div>
 </div>
 
@@ -1641,9 +1710,11 @@ function updateDashboard() {
       badge.textContent = 'nicht bestanden';
     }
 
-    document.getElementById('last-tech-score').textContent = last.tech ? `${last.tech.correct}/${last.tech.total}` : '—';
-    document.getElementById('last-betr-score').textContent = last.betr ? `${last.betr.correct}/${last.betr.total}` : '—';
-    document.getElementById('last-vor-score').textContent  = last.vor  ? `${last.vor.correct}/${last.vor.total}`   : '—';
+    document.getElementById('last-techN-score').textContent = last.techN ? `${last.techN.correct}/${last.techN.total}` : '—';
+    document.getElementById('last-techE-score').textContent = last.techE ? `${last.techE.correct}/${last.techE.total}` : '—';
+    document.getElementById('last-techA-score').textContent = last.techA ? `${last.techA.correct}/${last.techA.total}` : '—';
+    document.getElementById('last-betr-score').textContent  = last.betr  ? `${last.betr.correct}/${last.betr.total}`   : '—';
+    document.getElementById('last-vor-score').textContent   = last.vor   ? `${last.vor.correct}/${last.vor.total}`     : '—';
   }
 
   const weakCount = weakArr.length;
@@ -1822,7 +1893,7 @@ function handleLearnAnswer(btn, correct) {
   if (!STATS.seen[q.number]) STATS.seen[q.number] = { correct: 0, wrong: 0, lastWrong: false };
   const s = STATS.seen[q.number];
   if (correct) { s.correct++; s.lastWrong = false; }
-  else         { s.wrong++;   s.lastWrong = true;  }
+  else         { s.wrong++; s.correct = Math.max(0, s.correct - 1); s.lastWrong = true; }
   roundSeen.add(q.number); // als "dran gewesen" markieren
   saveStats();
 
@@ -1897,12 +1968,25 @@ async function renderExamQ() {
   const totalInPart = part.questions.length;
 
   // Dots
-  const dots = es.questions.map((_, i) => {
+  // Teile-Grenzen berechnen
+  const partBoundaries = new Set();
+  let cumulative = 0;
+  es.parts.forEach(p => {
+    cumulative += p.questions.length;
+    partBoundaries.add(cumulative);
+  });
+
+  const dotsArr = [];
+  es.questions.forEach((_, i) => {
+    if (i > 0 && partBoundaries.has(i)) {
+      dotsArr.push(`<div class="edot-divider"></div>`);
+    }
     let cls = 'edot';
     if (i === es.current) cls += ' current';
     else if (es.answers[i] !== null) cls += ' answered';
-    return `<div class="${cls}" onclick="jumpToExamQ(${i})" title="Frage ${i+1}"></div>`;
-  }).join('');
+    dotsArr.push(`<div class="${cls}" onclick="jumpToExamQ(${i})" title="Frage ${i+1}"></div>`);
+  });
+  const dots = dotsArr.join('');
 
   // SVGs für Antworten vorher laden
   const examAnsImgs = {};
@@ -1962,9 +2046,32 @@ async function selectExamAns(idx) {
 }
 
 async function examNav(dir) {
-  // Alle Buttons kurz deaktivieren
   document.querySelectorAll('.btn-exam-next, .btn-ghost').forEach(b => b.disabled = true);
+  const oldPartIdx = examState.questions[examState.current]._partIdx;
   examState.current = Math.max(0, Math.min(examState.questions.length - 1, examState.current + dir));
+  const newPartIdx = examState.questions[examState.current]._partIdx;
+  // Übergangs-Karte wenn Teilwechsel vorwärts
+  if (dir > 0 && newPartIdx !== oldPartIdx) {
+    showPartTransition(newPartIdx);
+    return;
+  }
+  await renderExamQ();
+}
+
+function showPartTransition(partIdx) {
+  const part = examState.parts[partIdx];
+  const partNum = partIdx + 1;
+  const totalParts = examState.parts.length;
+  const timeMin = Math.round(part.time / 60);
+  document.getElementById('pt-num').textContent = `TEIL ${partNum} VON ${totalParts}`;
+  document.getElementById('pt-name').textContent = part.label;
+  document.getElementById('pt-meta').textContent = `${part.questions.length} Fragen · ${timeMin} Minuten`;
+  document.getElementById('pt-bar').style.background = part.color;
+  document.getElementById('part-transition').classList.add('show');
+}
+
+async function dismissTransition() {
+  document.getElementById('part-transition').classList.remove('show');
   await renderExamQ();
 }
 
@@ -2034,7 +2141,7 @@ function finishExam() {
     if (!STATS.seen[q.number]) STATS.seen[q.number] = { correct: 0, wrong: 0, lastWrong: false };
     const s = STATS.seen[q.number];
     if (correct) { s.correct++; s.lastWrong = false; }
-    else         { s.wrong++;   s.lastWrong = true;  }
+    else         { s.wrong++; s.correct = Math.max(0, s.correct - 1); s.lastWrong = true; }
   });
 
   let allPassed = true;

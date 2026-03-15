@@ -731,6 +731,72 @@ h1, h2 { font-family: var(--serif); font-weight: 400; }
 /* ── DIVIDER ─────────────────────────────────────────────────── */
 .divider { height: 1px; background: var(--line); margin: 16px 0; }
 
+/* ── HILFSMITTEL ────────────────────────────────────────────── */
+#hilfs-btn {
+  position: fixed;
+  bottom: 72px;
+  right: 14px;
+  background: var(--amber);
+  color: #1a0e00;
+  border: none;
+  border-radius: var(--r-md);
+  padding: 8px 12px;
+  font-size: 11px;
+  font-weight: 500;
+  font-family: var(--mono);
+  cursor: pointer;
+  z-index: 40;
+  letter-spacing: 0.3px;
+  box-shadow: 0 2px 8px rgba(0,0,0,0.4);
+  transition: opacity 0.15s;
+}
+#hilfs-btn:hover { opacity: 0.85; }
+
+#hilfs-overlay {
+  display: none;
+  position: fixed;
+  inset: 0;
+  background: rgba(0,0,0,0.75);
+  z-index: 60;
+  flex-direction: column;
+}
+#hilfs-overlay.show { display: flex; }
+
+#hilfs-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 10px 16px;
+  background: var(--bg1);
+  border-bottom: 1px solid var(--line);
+  flex-shrink: 0;
+}
+
+#hilfs-title {
+  font-family: var(--mono);
+  font-size: 12px;
+  color: var(--amber);
+  letter-spacing: 0.5px;
+}
+
+#hilfs-close {
+  background: transparent;
+  border: 1px solid var(--line2);
+  color: var(--text1);
+  padding: 5px 12px;
+  border-radius: var(--r-sm);
+  font-size: 12px;
+  cursor: pointer;
+  font-family: var(--sans);
+}
+#hilfs-close:hover { border-color: var(--red); color: var(--red); }
+
+#hilfs-iframe {
+  flex: 1;
+  border: none;
+  background: white;
+}
+
 /* ── LOADER ─────────────────────────────────────────────────── */
 #loader {
   position: fixed;
@@ -805,6 +871,97 @@ h1, h2 { font-family: var(--serif); font-weight: 400; }
 .login-err { font-size: 12px; color: var(--red); font-family: var(--mono); margin-bottom: 12px; min-height: 18px; }
 .login-hint { font-size: 11px; color: var(--text2); text-align: center; margin-top: 12px; line-height: 1.6; }
 
+/* ── THEMEN-STATISTIK MODAL ─────────────────────────────────── */
+#themen-overlay {
+  display: none;
+  position: fixed;
+  inset: 0;
+  background: rgba(0,0,0,0.65);
+  z-index: 55;
+  align-items: flex-end;
+  justify-content: center;
+  padding: 0;
+}
+#themen-overlay.show { display: flex; }
+
+#themen-box {
+  background: var(--bg1);
+  border-top: 1px solid var(--line2);
+  border-radius: var(--r-lg) var(--r-lg) 0 0;
+  width: 100%;
+  max-width: 600px;
+  max-height: 80vh;
+  display: flex;
+  flex-direction: column;
+}
+
+#themen-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 14px 18px 12px;
+  border-bottom: 1px solid var(--line);
+  flex-shrink: 0;
+}
+
+#themen-title {
+  font-size: 14px;
+  font-weight: 500;
+  color: var(--text0);
+}
+
+#themen-close {
+  background: transparent;
+  border: 1px solid var(--line2);
+  color: var(--text2);
+  padding: 4px 10px;
+  border-radius: var(--r-sm);
+  font-size: 12px;
+  cursor: pointer;
+  font-family: var(--sans);
+}
+
+#themen-list {
+  overflow-y: auto;
+  padding: 12px 18px 20px;
+  flex: 1;
+}
+
+.thema-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 8px 0;
+  border-bottom: 1px solid var(--line);
+  cursor: pointer;
+}
+.thema-row:last-child { border-bottom: none; }
+.thema-row:hover .thema-name { color: var(--green); }
+
+.thema-name {
+  font-size: 12px;
+  color: var(--text1);
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  transition: color 0.12s;
+}
+
+.thema-bar-wrap {
+  width: 80px;
+  height: 4px;
+  background: var(--line);
+  border-radius: 2px;
+  overflow: hidden;
+  flex-shrink: 0;
+}
+
+.thema-bar-fill { height: 100%; border-radius: 2px; }
+.thema-pct { font-family: var(--mono); font-size: 11px; color: var(--text2); flex-shrink: 0; width: 32px; text-align: right; }
+.thema-count { font-family: var(--mono); font-size: 10px; color: var(--text2); flex-shrink: 0; width: 48px; text-align: right; }
+
 /* ── MODAL ──────────────────────────────────────────────────── */
 #modal-overlay {
   display: none;
@@ -853,6 +1010,17 @@ h1, h2 { font-family: var(--serif); font-weight: 400; }
 </style>
 </head>
 <body>
+
+<!-- HILFSMITTEL -->
+<button id="hilfs-btn" onclick="toggleHilfs()">📋 Hilfsmittel</button>
+
+<div id="hilfs-overlay">
+  <div id="hilfs-header">
+    <span id="hilfs-title">HILFSMITTEL — BNetzA Amateurfunkprüfungen</span>
+    <button id="hilfs-close" onclick="toggleHilfs()">✕ Schließen</button>
+  </div>
+  <iframe id="hilfs-iframe" src="hilfsmittel.pdf"></iframe>
+</div>
 
 <div id="loader">
   <div class="loader-logo">50Ω</div>
@@ -917,7 +1085,7 @@ h1, h2 { font-family: var(--serif); font-weight: 400; }
 
       <div class="section-label">Lernfortschritt</div>
       <div class="part-cards">
-        <div class="part-card" onclick="setFilter('tech'); showView('lernen')">
+        <div class="part-card" onclick="showThemen('tech')">
           <div class="part-accent accent-tech"></div>
           <div class="part-info">
             <div class="part-name">Technische Kenntnisse</div>
@@ -926,7 +1094,7 @@ h1, h2 { font-family: var(--serif); font-weight: 400; }
           </div>
           <div class="part-pct col-green" id="ppct-tech">0%</div>
         </div>
-        <div class="part-card" onclick="setFilter('betr'); showView('lernen')">
+        <div class="part-card" onclick="showThemen('betr')">
           <div class="part-accent accent-betr"></div>
           <div class="part-info">
             <div class="part-name">Betriebliche Kenntnisse</div>
@@ -935,11 +1103,11 @@ h1, h2 { font-family: var(--serif); font-weight: 400; }
           </div>
           <div class="part-pct col-blue" id="ppct-betr">0%</div>
         </div>
-        <div class="part-card" onclick="setFilter('vor'); showView('lernen')">
+        <div class="part-card" onclick="showThemen('vor')">
           <div class="part-accent accent-vor"></div>
           <div class="part-info">
             <div class="part-name">Vorschriften</div>
-            <div class="part-meta" id="pmeta-vor">204 Fragen · 25 in Prüfung · 30 min</div>
+            <div class="part-meta" id="pmeta-vor">204 Fragen · 25 in Prüfung · 45 min</div>
             <div class="pbar"><div class="pbar-fill" id="pbar-vor" style="width:0%;background:var(--purple)"></div></div>
           </div>
           <div class="part-pct col-blue" id="ppct-vor" style="color:var(--purple)">0%</div>
@@ -1133,6 +1301,17 @@ h1, h2 { font-family: var(--serif); font-weight: 400; }
       <svg viewBox="0 0 24 24"><line x1="18" y1="20" x2="18" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/><line x1="6" y1="20" x2="6" y2="14"/></svg>
       Statistik
     </button>
+  </div>
+</div>
+
+<!-- THEMEN-STATISTIK -->
+<div id="themen-overlay" onclick="closeThemen(event)">
+  <div id="themen-box">
+    <div id="themen-header">
+      <div id="themen-title">Statistik nach Thema</div>
+      <button id="themen-close" onclick="document.getElementById('themen-overlay').classList.remove('show')">✕</button>
+    </div>
+    <div id="themen-list"></div>
   </div>
 </div>
 
@@ -2192,6 +2371,74 @@ function renderLatex(text) {
         catch(e) { return expr; }
       });
   } catch(e) { return text; }
+}
+
+// ── THEMEN-STATISTIK ───────────────────────────────────────────
+function showThemen(partFilter) {
+  if (!CATALOG) return;
+
+  let pool;
+  let title;
+  if (partFilter === 'tech') {
+    pool = CATALOG.technik;
+    title = 'Technik — Statistik nach Thema';
+  } else if (partFilter === 'betr') {
+    pool = CATALOG.betrieb;
+    title = 'Betriebliche Kenntnisse — nach Thema';
+  } else {
+    pool = CATALOG.vorschriften;
+    title = 'Vorschriften — nach Thema';
+  }
+
+  // Themen gruppieren
+  const themen = {};
+  pool.forEach(q => {
+    const sec = q._sec || 'Allgemein';
+    if (!themen[sec]) themen[sec] = { total: 0, ok: 0, weak: 0 };
+    themen[sec].total++;
+    const s = STATS.seen[q.number];
+    if (s) {
+      if (s.correct >= 2 && !s.lastWrong) themen[sec].ok++;
+      else if (s.lastWrong) themen[sec].weak++;
+    }
+  });
+
+  // Sortieren: erst Schwächen, dann unseen, dann beherrscht
+  const sorted = Object.entries(themen).sort((a, b) => {
+    const scoreA = a[1].weak * 3 + (a[1].total - a[1].ok - a[1].weak);
+    const scoreB = b[1].weak * 3 + (b[1].total - b[1].ok - b[1].weak);
+    return scoreB - scoreA;
+  });
+
+  const listEl = document.getElementById('themen-list');
+  listEl.innerHTML = sorted.map(([name, d]) => {
+    const pct = Math.round(d.ok / d.total * 100);
+    const col = pct >= 75 ? 'var(--green)' : pct >= 40 ? 'var(--amber)' : 'var(--red)';
+    const unseen = d.total - d.ok - d.weak - (Object.keys(STATS.seen).filter(n => {
+      const q = pool.find(q => q.number === n);
+      return q && q._sec === name && STATS.seen[n] && STATS.seen[n].correct < 2 && !STATS.seen[n].lastWrong;
+    }).length);
+    return `<div class="thema-row" onclick="setFilter('${partFilter}');showView('lernen');document.getElementById('themen-overlay').classList.remove('show')">
+      <div class="thema-name" title="${name}">${name}</div>
+      <div class="thema-bar-wrap"><div class="thema-bar-fill" style="width:${pct}%;background:${col}"></div></div>
+      <div class="thema-pct" style="color:${col}">${pct}%</div>
+      <div class="thema-count">${d.ok}/${d.total}</div>
+    </div>`;
+  }).join('');
+
+  document.getElementById('themen-title').textContent = title;
+  document.getElementById('themen-overlay').classList.add('show');
+}
+
+function closeThemen(e) {
+  if (e.target === document.getElementById('themen-overlay')) {
+    document.getElementById('themen-overlay').classList.remove('show');
+  }
+}
+
+// ── HILFSMITTEL ────────────────────────────────────────────────
+function toggleHilfs() {
+  document.getElementById('hilfs-overlay').classList.toggle('show');
 }
 
 // ── START ──────────────────────────────────────────────────────

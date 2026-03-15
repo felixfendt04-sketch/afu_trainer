@@ -2,32 +2,43 @@
 
 Prüfungsvorbereitung für die deutsche Amateurfunkprüfung Klasse A nach BNetzA-Vorgaben.
 
+Entwickelt von [Claude](https://claude.ai) (Anthropic) in Zusammenarbeit mit Felix F.
+
 ## Features
 
 - Lernmodus mit gewichtetem, garantiertem Durchlauf aller 1750 Fragen
 - Schwächen werden bevorzugt, aber jede Frage kommt dran
 - Prüfungssimulation exakt nach BNetzA (75/25/25 Fragen, echte Zeitlimits)
 - Auswertung pro Prüfungsteil mit Bestehensgrenze 75%
+- Falsche Fragen nach Prüfung einzeln einsehbar mit richtiger Antwort
 - SVG-Schaltpläne und LaTeX-Formeln (lazy geladen)
 - Zwei Modi: mit Account (Cloud-Sync) oder ohne Account (lokal)
 - PWA — installierbar auf PC und Handy
 
-## Nutzung
+## Online nutzen
 
-### Online (empfohlen)
-Die App läuft direkt im Browser — kein Download nötig.
+Die App läuft direkt im Browser — kein Download nötig:
+**[https://felixfendt04-sketch.github.io/afu_trainer/](https://felixfendt04-sketch.github.io/afu_trainer/)**
 
-### Lokal (Windows)
+> **Hinweis:** Diese Instanz ist für den persönlichen Gebrauch des Autors eingerichtet.
+> Für eigene Cloud-Sync-Funktionalität bitte eine eigene Instanz hosten (siehe unten).
+> Der Gastmodus ist ohne Account vollständig nutzbar — der Lernstand wird dann lokal im Browser gespeichert.
+
+## Lokal nutzen (Windows)
+
 1. Repository klonen oder ZIP herunterladen
 2. `starten.bat` ausführen — startet lokalen Server und öffnet Browser
 3. Setzt Python voraus (`python.org/downloads`, "Add to PATH" anhaken)
 
-## Für eigene Instanz (selbst hosten)
+Im lokalen Betrieb läuft die App vollständig ohne Account — Lernstand wird lokal gespeichert.
 
-Du möchtest die App mit eigenem Cloud-Sync nutzen? So geht's:
+## Eigene Instanz hosten (mit Cloud-Sync)
 
-1. **Supabase-Projekt anlegen** auf `supabase.com`
-2. **Tabelle anlegen** (SQL Editor):
+Für eigene Cloud-Sync-Funktionalität musst du die App selbst hosten:
+
+1. **Repository forken** auf GitHub
+2. **Supabase-Projekt anlegen** auf `supabase.com`
+3. **Tabelle anlegen** (SQL Editor):
 ```sql
 create table lernstand (
   id uuid references auth.users(id) primary key,
@@ -38,18 +49,20 @@ alter table lernstand enable row level security;
 create policy "Nur eigene Daten" on lernstand
   for all using (auth.uid() = id) with check (auth.uid() = id);
 ```
-3. **User anlegen**: Authentication → Users → Add user
-4. **Sign-ups deaktivieren**: Authentication → Providers → Email → Disable sign ups
-5. **Repository forken**
+4. **User anlegen**: Authentication → Users → Add user
+5. **Sign-ups deaktivieren**: Authentication → Providers → Email → Disable sign ups
 6. **GitHub Secrets setzen**: Settings → Secrets → Actions:
    - `SUPABASE_URL` = deine Projekt-URL
    - `SUPABASE_KEY` = dein anon Key
-7. GitHub Actions deployt automatisch auf GitHub Pages
+7. **GitHub Pages aktivieren**: Settings → Pages → Branch `gh-pages`
+
+GitHub Actions deployt bei jedem Push auf `main` automatisch auf GitHub Pages
+und injiziert dabei die Supabase-Credentials aus den Secrets.
 
 ## Lizenzhinweise
 
 ### App-Code
-MIT License — Copyright (c) 2025
+MIT License — Copyright (c) 2025 — Entwickelt mit Claude (Anthropic)
 
 ### Prüfungsfragen
 Die Prüfungsfragen stammen von der Bundesnetzagentur und werden unter der

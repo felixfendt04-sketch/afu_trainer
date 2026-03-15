@@ -9,6 +9,7 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500&family=Instrument+Serif:ital@0;1&family=DM+Sans:wght@400;500&display=swap" rel="stylesheet">
 <script src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.css">
 <style>
 /* ── RESET & TOKENS ─────────────────────────────────────────── */
@@ -765,6 +766,45 @@ h1, h2 { font-family: var(--serif); font-weight: 400; }
 
 .loader-msg { font-family: var(--mono); font-size: 11px; color: var(--text2); }
 
+/* ── LOGIN ─────────────────────────────────────────────────────── */
+#login-screen {
+  display: none;
+  position: fixed;
+  inset: 0;
+  background: var(--bg0);
+  align-items: center;
+  justify-content: center;
+  z-index: 90;
+  padding: 20px;
+}
+#login-screen.show { display: flex; }
+.login-box {
+  background: var(--bg1);
+  border: 1px solid var(--line2);
+  border-radius: var(--r-lg);
+  padding: 32px 28px;
+  max-width: 360px;
+  width: 100%;
+}
+.login-logo { font-family: var(--mono); font-size: 28px; color: var(--green); margin-bottom: 6px; }
+.login-sub  { font-size: 13px; color: var(--text2); font-family: var(--mono); margin-bottom: 28px; }
+.login-field { margin-bottom: 12px; }
+.login-field label { font-size: 11px; color: var(--text2); letter-spacing: 0.5px; display: block; margin-bottom: 5px; font-family: var(--mono); }
+.login-field input {
+  width: 100%;
+  padding: 10px 12px;
+  background: var(--bg2);
+  border: 1px solid var(--line2);
+  border-radius: var(--r-md);
+  color: var(--text0);
+  font-size: 14px;
+  font-family: var(--sans);
+  outline: none;
+}
+.login-field input:focus { border-color: var(--green); }
+.login-err { font-size: 12px; color: var(--red); font-family: var(--mono); margin-bottom: 12px; min-height: 18px; }
+.login-hint { font-size: 11px; color: var(--text2); text-align: center; margin-top: 12px; line-height: 1.6; }
+
 /* ── MODAL ──────────────────────────────────────────────────── */
 #modal-overlay {
   display: none;
@@ -818,6 +858,25 @@ h1, h2 { font-family: var(--serif); font-weight: 400; }
   <div class="loader-logo">50Ω</div>
   <div class="loader-bar"><div class="loader-fill"></div></div>
   <div class="loader-msg" id="loader-msg">Lade Fragenkatalog…</div>
+</div>
+
+<!-- LOGIN -->
+<div id="login-screen">
+  <div class="login-box">
+    <div class="login-logo">50Ω</div>
+    <div class="login-sub">Amateurfunk Trainer · Klasse A</div>
+    <div class="login-field">
+      <label>E-MAIL</label>
+      <input type="email" id="login-email" placeholder="deine@email.de" autocomplete="email">
+    </div>
+    <div class="login-field">
+      <label>PASSWORT</label>
+      <input type="password" id="login-pw" placeholder="••••••••" autocomplete="current-password">
+    </div>
+    <div class="login-err" id="login-err"></div>
+    <button class="btn-prim" onclick="doLogin()">Einloggen →</button>
+    <div class="login-hint">Nur für autorisierte Nutzer.<br>Konto wird von Supabase verwaltet.</div>
+  </div>
 </div>
 
 <div id="app" style="display:none">
@@ -1067,44 +1126,61 @@ h1, h2 { font-family: var(--serif); font-weight: 400; }
 // ── SUPABASE CONFIG ────────────────────────────────────────────
 const SUPA_URL = 'https://bgpgmnxibvhrveaxkgvt.supabase.co';
 const SUPA_KEY = 'sb_publishable_HZ99XDEC4d3CMteJZpDdfw_a_5HCULg';
-const SUPA_ID  = 'felix_afu_klasse_a';
+let supaClient = null;
+let supaUser   = null;
 
-async function supaFetch(method, body) {
-  try {
-    const res = await fetch(`${SUPA_URL}/rest/v1/lernstand`, {
-      method,
-      headers: {
-        'apikey':        SUPA_KEY,
-        'Authorization': `Bearer ${SUPA_KEY}`,
-        'Content-Type':  'application/json',
-        'Prefer':        method === 'POST' ? 'resolution=merge-duplicates' : '',
-      },
-      body: body ? JSON.stringify(body) : undefined,
-    });
-    if (!res.ok) return null;
-    const text = await res.text();
-    return text ? JSON.parse(text) : null;
-  } catch(e) { return null; }
+function getSupaClient() {
+  if (!supaClient && window.supabase) {
+    supaClient = window.supabase.createClient(SUPA_URL, SUPA_KEY);
+  }
+  return supaClient;
+}
+
+async function doLogin() {
+  const email = document.getElementById('login-email').value.trim();
+  const pw    = document.getElementById('login-pw').value;
+  const err   = document.getElementById('login-err');
+  err.textContent = 'Einloggen…';
+  const sb = getSupaClient();
+  const { data, error } = await sb.auth.signInWithPassword({ email, password: pw });
+  if (error) {
+    err.textContent = 'Fehler: ' + (error.message === 'Invalid login credentials' ? 'E-Mail oder Passwort falsch' : error.message);
+    return;
+  }
+  supaUser = data.user;
+  document.getElementById('login-screen').classList.remove('show');
+  err.textContent = '';
+  await startApp();
+}
+
+async function checkAuth() {
+  const sb = getSupaClient();
+  if (!sb) return false;
+  const { data } = await sb.auth.getSession();
+  if (data?.session?.user) {
+    supaUser = data.session.user;
+    return true;
+  }
+  return false;
 }
 
 async function cloudSave() {
-  return await supaFetch('POST', {
-    id: SUPA_ID,
+  const sb = getSupaClient();
+  if (!sb || !supaUser) return null;
+  const { error } = await sb.from('lernstand').upsert({
+    id: supaUser.id,
     data: STATS,
     updated_at: new Date().toISOString(),
   });
+  return !error;
 }
 
 async function cloudLoad() {
-  try {
-    const res = await fetch(
-      `${SUPA_URL}/rest/v1/lernstand?id=eq.${SUPA_ID}&select=data`,
-      { headers: { 'apikey': SUPA_KEY, 'Authorization': `Bearer ${SUPA_KEY}` } }
-    );
-    if (!res.ok) return null;
-    const rows = await res.json();
-    return rows?.[0]?.data || null;
-  } catch(e) { return null; }
+  const sb = getSupaClient();
+  if (!sb || !supaUser) return null;
+  const { data, error } = await sb.from('lernstand').select('data').eq('id', supaUser.id).single();
+  if (error || !data) return null;
+  return data.data;
 }
 
 function mergeStats(local, cloud) {
@@ -1189,6 +1265,19 @@ function prepareSvg(svgText) {
 
 // ── INIT ───────────────────────────────────────────────────────
 async function init() {
+  // Auth prüfen
+  document.getElementById('loader-msg').textContent = 'Prüfe Anmeldung…';
+  const loggedIn = await checkAuth();
+  if (!loggedIn) {
+    document.getElementById('loader').style.display = 'none';
+    document.getElementById('login-screen').classList.add('show');
+    return;
+  }
+  await startApp();
+}
+
+async function startApp() {
+  document.getElementById('loader').style.display = 'flex';
   STATS = loadStats();
   document.getElementById('loader-msg').textContent = 'Verbinde mit Cloud…';
   const cloudData = await cloudLoad();

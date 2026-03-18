@@ -1711,6 +1711,13 @@ function showView(name) {
   document.getElementById('view-' + name).classList.add('active');
   document.querySelector(`.nav-btn[data-view="${name}"]`).classList.add('active');
 
+  // Deep Dive beenden beim Verlassen des Lernen-Tabs
+  if (name !== 'lernen' && deepDiveMode) {
+    deepDiveMode = false;
+    const banner = document.getElementById('deepdive-banner');
+    if (banner) banner.style.display = 'none';
+  }
+
   // Beim Verlassen der Prüfung: exam-running aufräumen
   if (name !== 'pruefung') {
     document.getElementById('exam-running').style.display = 'none';
@@ -1783,6 +1790,12 @@ function updateDashboard() {
 
 // ── LERNEN ─────────────────────────────────────────────────────
 async function setFilter(f) {
+  // Deep Dive beenden wenn aktiv
+  if (deepDiveMode) {
+    deepDiveMode = false;
+    const banner = document.getElementById('deepdive-banner');
+    if (banner) banner.style.display = 'none';
+  }
   learnFilter = f;
   document.querySelectorAll('.chip[data-filter]').forEach(c => {
     c.classList.toggle('active', c.dataset.filter === f);
@@ -2712,7 +2725,10 @@ async function startDeepDive(partFilter, themeName) {
   showView('lernen');
 
   // Chip-Highlights zurücksetzen — kein Filter aktiv im Deep Dive
-  document.querySelectorAll('.chip[data-filter]').forEach(c => c.classList.remove('active'));
+  document.querySelectorAll('.chip[data-filter]').forEach(c => {
+    c.classList.remove('active');
+    c.style.pointerEvents = ''; // sicherstellen dass Chips klickbar bleiben
+  });
 
   // Banner oben einblenden
   const filterRow = document.getElementById('filter-row');

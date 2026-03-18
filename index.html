@@ -1258,6 +1258,25 @@ h1, h2 { font-family: var(--serif); font-weight: 400; }
       </div>
     </div>
 
+    <!-- DEEP DIVE -->
+    <div id="view-deepdive" class="view">
+      <div id="dd-header" style="margin-bottom:14px">
+        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:6px">
+          <div id="dd-title" style="font-family:var(--mono);font-size:12px;color:var(--amber);letter-spacing:0.3px"></div>
+          <button onclick="exitDeepDive()" style="background:transparent;border:1px solid rgba(212,148,58,0.35);color:var(--amber);padding:4px 10px;border-radius:var(--r-sm);font-size:11px;cursor:pointer;font-family:var(--sans)">✕ Beenden</button>
+        </div>
+        <div id="dd-progress" style="height:2px;background:var(--line);border-radius:1px;overflow:hidden">
+          <div id="dd-progress-fill" style="height:100%;background:var(--amber);border-radius:1px;transition:width 0.3s;width:0%"></div>
+        </div>
+      </div>
+      <div id="dd-q-container"></div>
+      <div id="dd-done" class="empty-state" style="display:none">
+        <span class="emo">✓</span>
+        Alle Fragen dieses Themas durch!<br>
+        <button onclick="exitDeepDive()" class="btn-sec" style="margin-top:16px;display:inline-block;width:auto;padding:8px 20px">Zurück</button>
+      </div>
+    </div>
+
     <!-- PRÜFUNG -->
     <div id="view-pruefung" class="view">
       <div id="exam-setup">
@@ -1552,7 +1571,7 @@ let learnIdx    = 0;
 let learnFilter = 'all';
 let examState   = null;
 let roundSeen   = new Set();
-let deepDiveMode = false; // true = alle Fragen eines Themas, ungefiltert // garantierter Durchlauf
+
 
 // ── STORAGE ────────────────────────────────────────────────────
 const STATS_KEY = 'afu_stats_v2';
@@ -1711,13 +1730,6 @@ function showView(name) {
   document.getElementById('view-' + name).classList.add('active');
   document.querySelector(`.nav-btn[data-view="${name}"]`).classList.add('active');
 
-  // Deep Dive beenden beim Verlassen des Lernen-Tabs
-  if (name !== 'lernen' && deepDiveMode) {
-    deepDiveMode = false;
-    const banner = document.getElementById('deepdive-banner');
-    if (banner) banner.style.display = 'none';
-  }
-
   // Beim Verlassen der Prüfung: exam-running aufräumen
   if (name !== 'pruefung') {
     document.getElementById('exam-running').style.display = 'none';
@@ -1790,12 +1802,6 @@ function updateDashboard() {
 
 // ── LERNEN ─────────────────────────────────────────────────────
 async function setFilter(f) {
-  // Deep Dive beenden wenn aktiv
-  if (deepDiveMode) {
-    deepDiveMode = false;
-    const banner = document.getElementById('deepdive-banner');
-    if (banner) banner.style.display = 'none';
-  }
   learnFilter = f;
   document.querySelectorAll('.chip[data-filter]').forEach(c => {
     c.classList.toggle('active', c.dataset.filter === f);
@@ -1878,15 +1884,6 @@ async function renderLearnQ() {
 
   empty.style.display = 'none';
   if (learnIdx >= learnQueue.length) {
-    if (deepDiveMode) {
-      // Deep Dive abgeschlossen
-      container.innerHTML = `<div class="empty-state">
-        <span class="emo">✓</span>
-        Alle Fragen dieses Themas durch!<br>
-        <button onclick="exitDeepDive()" class="btn-sec" style="margin-top:16px;display:inline-block;width:auto;padding:8px 20px">Zurück zum Lernmodus</button>
-      </div>`;
-      return;
-    }
     // Queue neu aufbauen
     buildLearnQueue();
     if (learnQueue.length === 0) { empty.style.display = 'block'; return; }
@@ -1988,7 +1985,7 @@ async function nextLearnQ() {
   const btn = document.getElementById('learn-next-btn');
   if (btn) { btn.disabled = true; btn.textContent = '…'; }
   learnIdx++;
-  if (!deepDiveMode && learnIdx >= learnQueue.length) buildLearnQueue();
+  if (learnIdx >= learnQueue.length) buildLearnQueue();
   await renderLearnQ();
 }
 
@@ -2702,56 +2699,136 @@ function closeThemen(e) {
   }
 }
 
+// ── DEEP DIVE ──────────────────────────────────────────────────
+let ddQueue = [];
+let ddIdx   = 0;
+
 async function startDeepDive(partFilter, themeName) {
-  // Themen-Overlay schließen
   document.getElementById('themen-overlay').classList.remove('show');
 
-  // Pool für dieses spezifische Thema zusammenstellen
   let pool;
-  if (partFilter === 'tech')  pool = CATALOG.technik;
-  else if (partFilter === 'betr') pool = CATALOG.betrieb;
-  else pool = CATALOG.vorschriften;
+  if (partFilter === 'tech')       pool = CATALOG.technik;
+  else if (partFilter === 'betr')  pool = CATALOG.betrieb;
+  else                             pool = CATALOG.vorschriften;
 
-  // Alle Fragen dieses Themas — ungefiltert, ungewichtet, in Originalreihenfolge
-  const themaQ = pool.filter(q => (q._sec || 'Allgemein') === themeName);
-  if (themaQ.length === 0) return;
+  ddQueue = pool.filter(q => (q._sec || 'Allgemein') === themeName);
+  if (ddQueue.length === 0) return;
+  ddIdx = 0;
 
-  // Deep Dive Modus aktivieren
-  deepDiveMode = true;
-  learnQueue = themaQ;
-  learnIdx = 0;
+  document.getElementById('dd-title').textContent =
+    `Deep Dive: ${themeName} · ${ddQueue.length} Fragen`;
 
-  // Zum Lernen-Tab wechseln
-  showView('lernen');
+  // View wechseln — Lernen bleibt unberührt
+  document.querySelectorAll('.view').forEach(v => v.classList.remove('active'));
+  document.querySelectorAll('.nav-btn').forEach(b => b.classList.remove('active'));
+  document.getElementById('view-deepdive').classList.add('active');
+  // Lernen-Tab in der Nav markieren als aktiv (konzeptuell ähnlich)
+  document.querySelector('.nav-btn[data-view="lernen"]').classList.add('active');
 
-  // Chip-Highlights zurücksetzen — kein Filter aktiv im Deep Dive
-  document.querySelectorAll('.chip[data-filter]').forEach(c => {
-    c.classList.remove('active');
-    c.style.pointerEvents = ''; // sicherstellen dass Chips klickbar bleiben
-  });
+  await renderDdQ();
+}
 
-  // Banner oben einblenden
-  const filterRow = document.getElementById('filter-row');
-  let banner = document.getElementById('deepdive-banner');
-  if (!banner) {
-    banner = document.createElement('div');
-    banner.id = 'deepdive-banner';
-    banner.style.cssText = 'background:var(--amber-bg);border:1px solid rgba(212,148,58,0.35);border-radius:var(--r-md);padding:8px 12px;margin-bottom:12px;display:flex;align-items:center;justify-content:space-between;font-size:12px;';
-    filterRow.parentNode.insertBefore(banner, filterRow.nextSibling);
+async function renderDdQ() {
+  const container = document.getElementById('dd-q-container');
+  const done      = document.getElementById('dd-done');
+  const fill      = document.getElementById('dd-progress-fill');
+
+  if (ddIdx >= ddQueue.length) {
+    container.innerHTML = '';
+    done.style.display = 'block';
+    fill.style.width = '100%';
+    return;
   }
-  banner.innerHTML = `<span style="color:var(--amber);font-family:var(--mono)">Deep Dive: ${themeName} · ${themaQ.length} Fragen</span>
-    <button onclick="exitDeepDive()" style="background:transparent;border:1px solid rgba(212,148,58,0.35);color:var(--amber);padding:3px 8px;border-radius:var(--r-sm);font-size:11px;cursor:pointer;font-family:var(--sans)">✕ Beenden</button>`;
-  banner.style.display = 'flex';
 
-  await renderLearnQ();
+  done.style.display = 'none';
+  fill.style.width = Math.round(ddIdx / ddQueue.length * 100) + '%';
+
+  const q = ddQueue[ddIdx];
+  const answers = [
+    { text: q.answer_a, pic: q.picture_a, correct: true },
+    { text: q.answer_b, pic: q.picture_b, correct: false },
+    { text: q.answer_c, pic: q.picture_c, correct: false },
+    { text: q.answer_d, pic: q.picture_d, correct: false },
+  ];
+  shuffleArr(answers);
+
+  let imgHtml = '';
+  if (q.picture_question) {
+    const svg = await getSvg(q.picture_question);
+    if (svg) imgHtml = `<div class="q-img"><div class="svg-wrap">${svg}</div></div>`;
+  }
+
+  const ansImgs = {};
+  for (const a of answers) {
+    if (a.pic) ansImgs[a.pic] = await getSvg(a.pic);
+  }
+
+  const s = STATS.seen[q.number];
+  let tagHtml = `<span class="tag tag-sec">${q._sec || ''}</span>`;
+  if (s?.lastWrong) tagHtml += `<span class="tag tag-warn">${s.wrong}× falsch</span>`;
+  else if (s?.correct >= 2) tagHtml += `<span class="tag tag-ok">beherrscht</span>`;
+  else tagHtml += `<span class="tag tag-sec">neu</span>`;
+
+  const ansHtml = answers.map((a, i) => {
+    let ansImg = '';
+    if (a.pic && ansImgs[a.pic]) ansImg = `<div class="ans-svg-wrap">${ansImgs[a.pic]}</div>`;
+    return `<button class="ans-btn" data-correct="${a.correct}" onclick="handleDdAnswer(this, ${a.correct})">
+      <span class="ans-letter">${String.fromCharCode(65+i)}</span>
+      <span>${renderLatex(a.text)}${ansImg}</span>
+    </button>`;
+  }).join('');
+
+  container.innerHTML = `
+    <div class="q-card">
+      <div class="q-head">
+        <div class="q-meta">
+          <span class="q-num">${q.number}</span>
+          ${tagHtml}
+        </div>
+        <div class="q-text">${renderLatex(q.question)}</div>
+      </div>
+      ${imgHtml}
+      <div class="answers">${ansHtml}</div>
+      <div class="q-footer">
+        <span class="q-counter">${ddIdx + 1} / ${ddQueue.length}</span>
+        <div class="q-progbar"><div class="q-progfill" style="width:${Math.round(ddIdx/ddQueue.length*100)}%"></div></div>
+        <button class="next-btn" id="dd-next-btn" onclick="nextDdQ()">Weiter →</button>
+      </div>
+    </div>`;
+}
+
+function handleDdAnswer(btn, correct) {
+  const btns = btn.closest('.answers').querySelectorAll('.ans-btn');
+  btns.forEach(b => {
+    b.disabled = true;
+    if (b.dataset.correct === 'true') {
+      b.classList.add('correct');
+      b.querySelector('.ans-letter').insertAdjacentHTML('afterend', '<span class="ans-icon">✓</span>');
+    }
+  });
+  if (!correct) btn.classList.add('wrong');
+
+  // Statistik updaten
+  const q = ddQueue[ddIdx];
+  if (!STATS.seen[q.number]) STATS.seen[q.number] = { correct: 0, wrong: 0, lastWrong: false };
+  const s = STATS.seen[q.number];
+  if (correct) { s.correct++; s.lastWrong = false; }
+  else         { s.wrong++; s.correct = Math.max(0, s.correct - 1); s.lastWrong = true; }
+  saveStats();
+
+  document.getElementById('dd-next-btn')?.classList.add('show');
+}
+
+async function nextDdQ() {
+  const btn = document.getElementById('dd-next-btn');
+  if (btn) { btn.disabled = true; btn.textContent = '…'; }
+  ddIdx++;
+  await renderDdQ();
 }
 
 function exitDeepDive() {
-  deepDiveMode = false;
-  const banner = document.getElementById('deepdive-banner');
-  if (banner) banner.style.display = 'none';
-  // Zurück zum normalen Lernmodus
-  setFilter(learnFilter || 'all');
+  ddQueue = []; ddIdx = 0;
+  showView('lernen');
 }
 
 // ── HILFSMITTEL ────────────────────────────────────────────────
